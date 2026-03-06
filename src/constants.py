@@ -1,0 +1,23 @@
+residues = {
+    # '1-Letter': {'mass': amu, 'charge': e, 'sigma': nm, 'lambda': hydropathy}
+    "A": {"mass": 71.08, "charge": 0.0, "sigma": 5.040},
+    "R": {"mass": 156.20, "charge": 1.0, "sigma": 6.560},
+    "N": {"mass": 114.10, "charge": 0.0, "sigma": 5.680},
+    "D": {"mass": 115.10, "charge": -1.0, "sigma": 5.580},
+    "C": {"mass": 103.10, "charge": 0.0, "sigma": 5.480},
+    "Q": {"mass": 128.10, "charge": 0.0, "sigma": 6.020},
+    "E": {"mass": 129.10, "charge": -1.0, "sigma": 5.920},
+    "G": {"mass": 57.05, "charge": 0.0, "sigma": 4.500},
+    "H": {"mass": 137.10, "charge": 0.5, "sigma": 6.080},
+    "I": {"mass": 113.20, "charge": 0.0, "sigma": 6.180},
+    "L": {"mass": 113.20, "charge": 0.0, "sigma": 6.180},
+    "K": {"mass": 128.20, "charge": 1.0, "sigma": 6.360},
+    "M": {"mass": 131.20, "charge": 0.0, "sigma": 6.180},
+    "F": {"mass": 147.20, "charge": 0.0, "sigma": 6.360},
+    "P": {"mass": 97.12, "charge": 0.0, "sigma": 5.560},
+    "S": {"mass": 87.08, "charge": 0.0, "sigma": 5.180},
+    "T": {"mass": 101.10, "charge": 0.0, "sigma": 5.620},
+    "W": {"mass": 186.20, "charge": 0.0, "sigma": 6.780},
+    "Y": {"mass": 163.20, "charge": 0.0, "sigma": 6.460},
+    "V": {"mass": 99.07, "charge": 0.0, "sigma": 5.860},
+}

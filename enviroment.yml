@@ -1,0 +1,19 @@
+name: idp-research
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:
+  - hoomd
+  - gsd
+  - numpy
+  - pandas
+  - pyarrow
+  - pyyaml
+  - matplotlib
+  - scikit-learn
+  - jupyter
+  - pytest
+  - pip
+  - pip:
+      - freud-analysis

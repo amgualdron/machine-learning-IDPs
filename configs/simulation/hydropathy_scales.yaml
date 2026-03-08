@@ -1,7 +1,6 @@
-model: HPS1
 reference: "Dignon et al. 2018, doi:10.1371/journal.pcbi.1005941"
 # HPS1 hydropathy scale for each one letter code
-lambda:
+HPS1:
   A: 0.730
   R: 0.000
   N: 0.432
@@ -22,4 +21,24 @@ lambda:
   W: 0.946
   Y: 0.865
   V: 0.892
-  
+HPS2:
+  A: 0.003
+  R: 0.723
+  N: 0.16
+  D: 0.002
+  C: 0.4
+  Q: 0.468
+  E: 0.022
+  G: 0.784
+  H: 0.487
+  I: 0.687
+  L: 0.335
+  K: 0.095
+  M: 0.993
+  F: 0.871
+  P: 0.471
+  S: 0.487
+  T: 0.274
+  W: 0.753
+  Y: 0.984
+  V: 0.428

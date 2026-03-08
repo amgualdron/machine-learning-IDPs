@@ -45,6 +45,7 @@ project/
 ├── notebooks/              # Exploratory analysis only, not part of pipeline
 ├── tests/
 └── docs/
+└── enviroment.yaml # enviroment packages to recreated using conda
 ```
 
 ---

@@ -16,36 +16,46 @@ This project runs large batches of IDP simulations across many sequences, analys
 
 ```
 project/
+│
+├── configs/                          # MASTER CONTROL PANEL — hand-edit here only
+│   ├── sequences.yaml                # Full sequence database: ID -> AA string + metadata
+│   ├── physics.yaml                  # Named parameter sets (baseline, cold, ph_sweep...)
+│   └── experiment.yaml               # Which sequences x param_sets to run + sweep flags
+│
+├── runs/                             # EXECUTION SPACE — fully auto-generated
+│   └── exp_01_baseline/              # One folder per experiment batch
+│       ├── configs_snapshot/         # Frozen copy of configs/ at generation time
+│       │   ├── sequences.yaml        #   (full DB, not just sequences that ran)
+│       │   ├── physics.yaml
+│       │   └── experiment.yaml
+│       ├── sequences_ran.yaml        # Explicit list of sequences in THIS experiment
+│       ├── manifest.csv              # One row per job — used by SLURM array indexing
+│       └── fus_lcd_T300_HPS1/        # Auto-named: {seq}_{T}K_{hps_scale}
+│           ├── run_metadata.json     # Written TWICE: pre-run (config) + post-run (status)
+│           ├── trajectory.gsd        # Raw HOOMD output
+│           └── hoomd.log             # Raw HOOMD output
+│
 ├── data/
-│   ├── sequences/          # Sequence files (.dat) + metadata.yaml
-│   ├── raw/                # HOOMD outputs — trajectory.gsd, thermo.log, run_manifest.yaml
-│   └── processed-ml/       # Feature matrices ready for ML training
+│   ├── external/                     # Downloaded files, PDBs, reference data
+│   └── processed-ml/                 # Distilled, ML-ready outputs
+│       ├── exp_01_features.csv       # Computed observables (Rg, contacts, etc.)
+│       └── exp_01_targets.npy        # Numpy arrays for large per-frame data
 │
-├── configs/
-│   ├── simulation/         # Integrator, timestep, temperature, steps
-│   └── experiments/        # Which sequences to run + which sim config to use
+├── scripts/                          # Workflow automation — numbered in order
+│   ├── 01_generate_jobs.py           # configs/ → runs/exp_N/ + manifest.csv
+│   └── 02_process_to_ml.py           # runs/ → data/processed-ml/ + master_index.csv
 │
-├── src/
-│   ├── config.py           # YAML loading, sequence translation, validation
-│   ├── simulation.py       # HOOMD runner
-│   ├── analysis.py         # Trajectory observables (Rg, contact maps, ...)
-│   ├── features.py         # Processed data → ML feature matrices
-│   └── train.py            # ML model training
-│
-├── scripts/
-│   ├── run_simulation.py   # --experiment configs/... --index N
-│   ├── run_analysis.py
-│   └── build_features.py
+├── src/                              # Core library — importable by scripts
+│   ├── simulation.py                 # HOOMD script, reads run_metadata.json
+│   ├── analysis.py                   # Rg, contacts, asphericity, distributions
+│   └── config_loader.py              # YAML loading, deep merge, validation, extends
 │
 ├── slurm/
-│   ├── submit_experiment.sh   # SLURM job array → calls run_simulation.py
-│   └── submit_analysis.sh
+│   └── submit_array.sh               # Indexes into manifest.csv via $SLURM_ARRAY_TASK_ID
 │
-├── logs/                   # Cluster stdout/stderr, gitignored
-├── notebooks/              # Exploratory analysis only, not part of pipeline
-├── tests/
-└── docs/
-└── enviroment.yaml # enviroment packages to recreated using conda
+├── master_index.csv                  # ONE ROW PER COMPLETED+ANALYZED RUN (see below)
+├── environment.yml
+└── README.md
 ```
 
 ---

@@ -2,13 +2,13 @@
 
 Coarse-grained molecular dynamics simulations of intrinsically disordered proteins (IDPs) using HOOMD-blue, with bulk data generation for downstream machine learning.
 
-> **Status:** in development — physics lab collaboration
+> **Status:** in development
 
 ---
 
 ## Overview
 
-This project runs large batches of IDP simulations across many sequences, analyses the resulting trajectories, and builds ML-ready datasets from the outputs. Configs drive everything — any run can be fully reproduced from its YAML files and a git commit hash.
+This project runs large batches of IDP simulations across many sequences, analyses the resulting trajectories, and builds ML-ready datasets from the outputs. Configs drive everything — any run can be fully reproduced from its YAML files saved in the run config snapshot, or the run metadata.json.
 
 ---
 
@@ -17,15 +17,14 @@ This project runs large batches of IDP simulations across many sequences, analys
 ```
 project/
 │
-├── configs/                          # MASTER CONTROL PANEL — hand-edit here only
+├── configs/                          # CONTROL PANEL
 │   ├── sequences.yaml                # Full sequence database: ID -> AA string + metadata
-│   ├── physics.yaml                  # Named parameter sets (baseline, cold, ph_sweep...)
-│   └── experiment.yaml               # Which sequences x param_sets to run + sweep flags
-│
+│   ├── physics.yaml                  # Named parameter sets (default, cold)
+│   └── experiment.yaml               # control panel, choose sequences to run, steps, simulation parameters
+                                      # physical parameters sets or override specific parameters, choose runner
 ├── runs/                             # EXECUTION SPACE — fully auto-generated
 │   └── exp_01_baseline/              # One folder per experiment batch
 │       ├── configs_snapshot/         # Frozen copy of configs/ at generation time
-│       │   ├── sequences.yaml        #   (full DB, not just sequences that ran)
 │       │   ├── physics.yaml
 │       │   └── experiment.yaml
 │       ├── sequences_ran.yaml        # Explicit list of sequences in THIS experiment
@@ -47,8 +46,7 @@ project/
 │
 ├── src/                              # Core library — importable by scripts
 │   ├── simulation.py                 # HOOMD script, reads run_metadata.json
-│   ├── analysis.py                   # Rg, contacts, asphericity, distributions
-│   └── config_loader.py              # YAML loading, deep merge, validation, extends
+│   └── analysis.py                   # Rg, contacts, asphericity, distributions writes run_metadata.json
 │
 ├── slurm/
 │   └── submit_array.sh               # Indexes into manifest.csv via $SLURM_ARRAY_TASK_ID
@@ -72,47 +70,52 @@ conda activate idp-research
 ```
 
 **2. Run a simulation locally**
+To run a simulation locally select local as the runner in run_config.yaml, you can also specify the number
+of workers (cores) that will work in parallalel for large runs, then just run the scripts normally
 
-```bash
-python scripts/run_simulation.py \
-    --experiment configs/experiments/charge_sweep.yaml \
-    --index 0
-```
+01*generate_jobs.py -> 02*...
 
+it will automatically create a new directory with the run data and append entries to the master_index.csv
+with all the analysis like Rg or mean Rg, the input will also be apended for ML training
 **3. Submit a full experiment on the cluster**
-
-```bash
-sbatch slurm/submit_experiment.sh configs/experiments/charge_sweep.yaml
-```
+for job summiting change the runner from local to slurm
 
 **4. Analyse outputs**
 
-```bash
-python scripts/run_analysis.py --experiment configs/experiments/charge_sweep.yaml
-```
-
-**5. Build ML features**
-
-```bash
-python scripts/build_features.py \
-    --processed-dir data/processed-ml/ \
-    --out-dir data/processed-ml/features/
-```
+data processing is done automatically and stored both in run_metadata.json or in the master_index.csv
+, in order to generate plots or others run a custom plots.py
 
 ---
 
 ## How a run is tracked
 
-Every simulation writes a `run_manifest.yaml` alongside its trajectory:
+Every simulation writes a `run_metadata.json` alongside its trajectory, for example:
 
-```yaml
-run_id: charge_sweep_polyR10_20260306_143201
-git_commit: a3f9c2d
-experiment_config: configs/experiments/charge_sweep.yaml
-sequence_file: data/sequences/polyR10.dat
-sequence_hash: md5:e4d909c290d0fb1ca068ffad
-slurm_job_id: 10042
-timestamp: 2026-03-06T14:32:01
+```json
+{
+  "status": "completed",
+
+  "exp_id": "exp_01_baseline",
+  "seq_name": "ACTR",
+  "param_set": "baseline",
+  "run_dir": "runs/exp_01_baseline/ACTR_T300_HPS1",
+
+  "sequence": "GTQNRPLLRNSLDDLVGPPSNLEGQSDERALLDQLHTLLSNTDATGLEEIDRALGIPELVNQGQALEPKQD",
+  "length": 71,
+
+  "temperature_K": 300,
+  "hydropathy_scale": "HPS1",
+
+  .
+  .
+  .
+
+  "total_steps": 2559066,
+  "n_frames": 1279,
+
+  "wall_time_s": 3847,
+  "completed_at": "2026-03-19T14:32:07"
+}
 ```
 
 This links every output file back to the exact code, config, and sequence that produced it.
@@ -121,12 +124,12 @@ This links every output file back to the exact code, config, and sequence that p
 
 ## Configuration
 
-Two YAML files fully define any run:
+every run is fully defined by 1 yaml file:
 
-| File                              | Controls                                       |
-| --------------------------------- | ---------------------------------------------- |
-| `configs/simulation/default.yaml` | timestep, temperature, integrator, steps, seed |
-| `configs/experiments/<name>.yaml` | which sequences, which sim config, output dir  |
+| File                      | Controls                                       |
+| ------------------------- | ---------------------------------------------- |
+| `configs/run_config.yaml` | timestep, temperature, integrator, steps, seed |
+|                           | which sequences, which sim config, output dir  |
 
 ---
 

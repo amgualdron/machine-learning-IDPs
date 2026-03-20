@@ -2,64 +2,107 @@ import hoomd
 import hoomd.md
 import hoomd.write
 import numpy as np
+import json
+import argparse
 import yaml
 from pathlib import Path
 
-project_root = Path.cwd().parent
-def load_hydropathy(scale_name):
-    yaml_path = project_root / "configs" / "simulation" / "hydropathy_scales.yaml"
-    with open(yaml_path, 'r') as f:
-        data = yaml.safe_load(f)
-    return data[scale_name]
+# ── Config loading ─────────────────────────────────────────────────────────────
+project_root = Path(__file__).parent.parent
 
-AA_ORDER = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 
-            'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-hps_dict = load_hydropathy("HPS1")
-missing = set(AA_ORDER) - set(hps_dict.keys())
-if missing:
-    raise ValueError(f"Hydropathy scale is missing values for: {missing}")
+def load_config(run_dir: Path) -> dict:
+    """Load and resolve config from run_metadata.json + physics.yaml."""
     
-ids = {aa: i for i, aa in enumerate(AA_ORDER)}
+    # load frozen metadata written by 01_generate_jobs.py
+    with open(run_dir / "run_metadata.json") as f:
+        meta = json.load(f)
+    
+    # load and resolve physics with extends
+    with open(project_root / "configs" / "physics.yaml") as f:
+        all_physics = yaml.safe_load(f)
+    
+    def resolve(name):
+        cfg = all_physics[name].copy()
+        if "extends" in cfg:
+            parent = resolve(cfg.pop("extends"))
+            return {**parent, **cfg}      # child overrides parent, flat merge
+        return cfg
+    
+    physics = resolve(meta["param_set"])
+    return {**physics,**meta}            # single flat dict for the whole run, and meta(run_config) can override physics if necessary
 
-hps = np.array([hps_dict[aa] for aa in AA_ORDER])
+# ── Parse args and load ────────────────────────────────────────────────────────
+parser = argparse.ArgumentParser()
+parser.add_argument("--run-dir", required=True)
+args   = parser.parse_args()
 
-masses = np.array([71.08, 156.2, 114.1, 115.1, 103.1, 128.1, 129.1, 57.05, 137.1, 113.2
-, 113.2, 128.2, 131.2, 147.2, 97.12, 87.08, 101.1, 186.2, 163.2, 99.07], dtype=np.float32)
+RUN_DIR = Path(args.run_dir)
+cfg     = load_config(RUN_DIR)
 
-charges = np.array([0.0, 1.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.5, 0.0, 0.0, 1.0, 0.0, 0.0
-, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+# ── Unpack ─────────────────────────────────────────────────────────────────────
+sequence            = cfg["sequence"]
+T_Kelvin            = cfg["temperature_K"]
+DT                  = cfg["dt"]
+EPSILON             = cfg["epsilon_lj"]
+ionic_concentration = cfg["ionic_concentration_M"]
+BOX_SIZE            = cfg["box_size"]
+SAVE_EVERY          = cfg["save_every"]
+hps_scale           = cfg["hydropathy_scale"]
+ph                  = cfg.get("ph", None)
+N                   = len(sequence)
 
-sigmas = np.array([0.504, 0.656, 0.568, 0.558, 0.548, 0.602, 0.592, 0.45, 0.608, 0.618, 0.618, 0.636
- , 0.618, 0.636, 0.556, 0.518, 0.562, 0.678, 0.646, 0.586], dtype=np.float32)
-
-sequence  = 'GSHCFLDGIDKAQEEHEKYHSNWRAMASDFNLPPVVAKEIVASCDKCQLKGEAMHGQVDC'
-N         = len(sequence)
-GSD_FILE  = 'very_cold_run.gsd'
-BOX_SIZE  = 500    # nm, appropriate for a 23-residue chain
-T_Kelvin  = 5      #  ~room temp in HPS
-DT        = 0.01     # timestep
-N_STEPS   = int((5*(N)**2.2)/DT)
-SAVE_EVERY= 1000      # save frame every N steps -> 100 frames total
-EPS_HPS   = 0.2       # kJ/mol, fixed LJ epsilon for all pairs
-# ──────────────────────────────────────────────────────────────────────────────
-KT = T_Kelvin*0.001987204259 # Boltzmann constant in kCal/mol/K
-EPSILON = 0.1 # KCal/mol
-
-sqid = np.array([ids[aa] for aa in sequence], dtype=np.int32)
-
-seq_mass = masses[sqid]
-seq_charge = charges[sqid]
-seq_sigma = sigmas[sqid]
-seq_hp = hps[sqid]
-
-ionic_concentration = 150*1e-3 # in M or mol/L
-
-fepsw = lambda T : 5321/T+233.76-0.9297*T+0.1417*1e-2*T*T-0.8292*1e-6*T**3 #temperature dependent dielectric constant of water
-epsw = fepsw(T_Kelvin) # dielectric constant of water at T 
-lB = (1.6021766**2/(4*np.pi*8.854188*epsw))*(6.022*1000/KT)/4.184 # Bjerrum length in nm
-
-yukawa_eps = lB*KT
+# ── Derived quantities (never stored in yaml) ──────────────────────────────────
+KT           = T_Kelvin * 0.001987204259
+epsw         = 5321/T_Kelvin + 233.76 - 0.9297*T_Kelvin + 0.1417e-2*T_Kelvin**2 - 0.8292e-6*T_Kelvin**3
+lB           = (1.6021766**2 / (4*np.pi*8.854188*epsw)) * (6.022*1000/KT) / 4.184
+yukawa_eps   = lB * KT
 yukawa_kappa = np.sqrt(8*np.pi*lB*ionic_concentration*6.022/10)
+
+N_STEPS = (cfg["production_steps"] or
+           int((cfg["rouse_multiplier"] * N**2.2) / DT))
+
+# ── Amino Acid Force Field Parameters ─────────────────────────────────────────
+# masses in g/mol, sigmas in nm, charges in elementary units
+# HPS1: Dignon et al. 2018, HPS2: Tesei et al. 2021
+
+AA_PARAMS = {
+    "A": dict(mass= 71.08, charge= 0.0, sigma=0.504, HPS1=0.730, HPS2=0.003),
+    "R": dict(mass=156.20, charge= 1.0, sigma=0.656, HPS1=0.000, HPS2=0.723),
+    "N": dict(mass=114.10, charge= 0.0, sigma=0.568, HPS1=0.432, HPS2=0.160),
+    "D": dict(mass=115.10, charge=-1.0, sigma=0.558, HPS1=0.378, HPS2=0.002),
+    "C": dict(mass=103.10, charge= 0.0, sigma=0.548, HPS1=0.595, HPS2=0.400),
+    "Q": dict(mass=128.10, charge= 0.0, sigma=0.602, HPS1=0.514, HPS2=0.468),
+    "E": dict(mass=129.10, charge=-1.0, sigma=0.592, HPS1=0.459, HPS2=0.022),
+    "G": dict(mass= 57.05, charge= 0.0, sigma=0.450, HPS1=0.649, HPS2=0.784),
+    "H": dict(mass=137.10, charge= 0.5, sigma=0.608, HPS1=0.514, HPS2=0.487),
+    "I": dict(mass=113.20, charge= 0.0, sigma=0.618, HPS1=0.973, HPS2=0.687),
+    "L": dict(mass=113.20, charge= 0.0, sigma=0.618, HPS1=0.973, HPS2=0.335),
+    "K": dict(mass=128.20, charge= 1.0, sigma=0.636, HPS1=0.514, HPS2=0.095),
+    "M": dict(mass=131.20, charge= 0.0, sigma=0.618, HPS1=0.838, HPS2=0.993),
+    "F": dict(mass=147.20, charge= 0.0, sigma=0.636, HPS1=1.000, HPS2=0.871),
+    "P": dict(mass= 97.12, charge= 0.0, sigma=0.556, HPS1=1.000, HPS2=0.471),
+    "S": dict(mass= 87.08, charge= 0.0, sigma=0.518, HPS1=0.595, HPS2=0.487),
+    "T": dict(mass=101.10, charge= 0.0, sigma=0.562, HPS1=0.676, HPS2=0.274),
+    "W": dict(mass=186.20, charge= 0.0, sigma=0.678, HPS1=0.946, HPS2=0.753),
+    "Y": dict(mass=163.20, charge= 0.0, sigma=0.646, HPS1=0.865, HPS2=0.984),
+    "V": dict(mass= 99.07, charge= 0.0, sigma=0.586, HPS1=0.892, HPS2=0.428),
+}
+
+# ── Derived arrays ───────────────────────────────────
+AA_ORDER = list(AA_PARAMS.keys())
+ids      = {aa: i for i, aa in enumerate(AA_ORDER)}
+
+# vectorized arrays for construction of sequence values
+lambdas = np.array([AA_PARAMS[aa][scale] for aa in AA_ORDER], dtype=np.float32)
+masses  = np.array([AA_PARAMS[aa]["mass"]   for aa in AA_ORDER], dtype=np.float32)
+charges = np.array([AA_PARAMS[aa]["charge"] for aa in AA_ORDER], dtype=np.float32)
+sigmas  = np.array([AA_PARAMS[aa]["sigma"]  for aa in AA_ORDER], dtype=np.float32)
+
+seq_id     = np.array([ids[aa] for aa in sequence], dtype=np.int32)
+seq_mass   = masses[sqid]
+seq_charge = charges[sqid]
+seq_sigma  = sigmas[sqid]
+seq_hp     = lambdas[sqid]
 
 # ── Build snapshot ────────────────────────────────────────────────────────────
 device = hoomd.device.auto_select()

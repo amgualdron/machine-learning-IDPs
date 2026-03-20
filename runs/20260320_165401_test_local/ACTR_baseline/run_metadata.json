@@ -1,0 +1,19 @@
+{
+  "experiment_id": "20260320_165401_test_local",
+  "sequence_name": "ACTR",
+  "sequence": "GTQNRPLLRNSLDDLVGPPSNLEGQSDERALLDQLHTLLSNTDATGLEEIDRALGIPELVNQGQALEPKQD",
+  "param_set": "baseline",
+  "status": "completed",
+  "seed": 8974,
+  "KT": 0.592187,
+  "epsw": 78.4568,
+  "lB": 0.714697,
+  "yukawa_eps": 0.423234,
+  "yukawa_kappa": 1.273787,
+  "equilibration_steps": 1000,
+  "production_steps": 5000,
+  "total_steps": 6000,
+  "wall_time_s": 0,
+  "n_frames": 50,
+  "completed_at": "2026-03-20T16:55:32"
+}

@@ -1,0 +1,6 @@
+ACTR:
+  description: Activation domain of the steroid receptor coactivator (SRC-1/ACTR).
+    Disordered in isolation, folds on binding to NCBD. Classic coupled folding-and-binding
+    IDP. HPS benchmark sequence (Dignon et al. 2018).
+  length: 71
+  sequence: GTQNRPLLRNSLDDLVGPPSNLEGQSDERALLDQLHTLLSNTDATGLEEIDRALGIPELVNQGQALEPKQD

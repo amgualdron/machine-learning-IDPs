@@ -1,0 +1,2 @@
+task_id,run_dir,sequence_name,length,param_set
+1,/home/andres/Research/machine-learning-IDPs/runs/20260320_165401_test_local/ACTR_baseline,ACTR,71,baseline

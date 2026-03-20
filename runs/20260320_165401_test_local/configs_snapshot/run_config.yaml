@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Master control panel for a single experiment batch.
+# ─────────────────────────────────────────────────────────────────────────────
+run_name: test_local
+description: "Baseline HPS1 room temp run across Mittal benchmark set"
+
+# ── Sequence selection ────────────────────────────────────────────────────────
+sequences:
+  source: sequences.yaml
+
+  # Option 1 — explicit list
+  select: [ACTR]
+
+  # Option 2 — full database
+  # select: all
+
+  # Option 3 — filter by property
+  # select:
+  #   min_length: 60
+  #   max_length: 150
+
+# ── Parameter sets ────────────────────────────────────────────────────────────
+# Single value    → one run per sequence
+# List of values  → cartesian product (sequence x param_set)
+param_sets: [baseline]
+# param_sets: [baseline, cold, ph_low, ph_high]   # full sweep
+
+# ── Execution ─────────────────────────────────────────────────────────────────
+runner: local                 # local | slurm
+workers: 1                    # local only — parallel processes
+dry_run: false                # true = print jobs without submitting
+

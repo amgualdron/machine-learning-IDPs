@@ -250,3 +250,4 @@ core.*
 # README.md
 # environment.yml
 # .gitignore
+*.gsd 

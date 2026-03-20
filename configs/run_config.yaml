@@ -1,0 +1,39 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Master control panel for a single experiment batch.
+# ─────────────────────────────────────────────────────────────────────────────
+experiment_id: exp_01_baseline
+description: "Baseline HPS1 room temp run across Mittal benchmark set"
+
+# ── Sequence selection ────────────────────────────────────────────────────────
+sequences:
+  source: sequences.yaml
+
+  # Option 1 — explicit list
+  select: [CspTm, ACTR, sNase, alpha_synuclein, ProTa_N, hNHE1cdt]
+
+  # Option 2 — full database
+  # select: all
+
+  # Option 3 — filter by property
+  # select:
+  #   min_length: 60
+  #   max_length: 150
+
+# ── Parameter sets ────────────────────────────────────────────────────────────
+# Single value    → one run per sequence
+# List of values  → cartesian product (sequence x param_set)
+param_sets: [baseline]
+# param_sets: [baseline, cold, ph_low, ph_high]   # full sweep
+
+# ── Execution ─────────────────────────────────────────────────────────────────
+runner: local                 # local | slurm
+workers: 4                    # local only — parallel processes
+dry_run: false                # true = print jobs without submitting
+
+# slurm only — ignored for local runs
+slurm:
+  max_concurrent: 32          # --array=1-N%32
+  partition: gpu
+  gres: gpu:1
+  time: "24:00:00"
+  mem: "16G"
